@@ -13,8 +13,8 @@ const AppLayout = () => {
             <span className="text-gradient-aura">era</span>
             <span className="text-muted-foreground font-light">.ai</span>
           </h1>
-          <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mt-1">
-            Living Ledger
+          <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mt-1">LIVING COMPASS
+
           </p>
         </div>
 
