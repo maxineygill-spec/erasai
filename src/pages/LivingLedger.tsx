@@ -1,183 +1,224 @@
-import { useMemo } from "react";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  ReferenceLine,
-} from "recharts";
+import { useState } from "react";
+import { Lock, LockOpen, Mic, BookOpen, Users, Sparkles, ChevronRight } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
 
-const eltvData = [
-  { month: "M0", value: -40, label: "Hiring Cost" },
-  { month: "M1", value: -25, label: "Onboarding" },
-  { month: "M2", value: -10, label: "Ramp-Up" },
-  { month: "M3", value: 5, label: "Breakeven" },
-  { month: "M4", value: 20, label: "Contributing" },
-  { month: "M5", value: 35, label: "Accelerating" },
-  { month: "M6", value: 50, label: "Performing" },
-  { month: "M8", value: 68, label: "High Output" },
-  { month: "M10", value: 80, label: "Expert" },
-  { month: "M12", value: 88, label: "Mentor" },
-  { month: "M14", value: 92, label: "Max Potential" },
-  { month: "M16", value: 90, label: "Plateau" },
+const completedProjects = [
+  {
+    project: "Cloud Infrastructure Migration",
+    skillGained: "Strategic Leadership",
+    alignedGoal: "Cross-functional Decision Making",
+    date: "Feb 2026",
+  },
+  {
+    project: "APAC Latency Optimization",
+    skillGained: "Systems Architecture",
+    alignedGoal: "Technical Vision & Ownership",
+    date: "Jan 2026",
+  },
+  {
+    project: "Onboarding Flow Redesign",
+    skillGained: "User Empathy & Research",
+    alignedGoal: "Human-Centered Design Thinking",
+    date: "Dec 2025",
+  },
 ];
 
-const growthDiary = [
+const growthNodes = [
+  { title: "Adaptive Leadership in Uncertainty", progress: 72, category: "Leadership" },
+  { title: "Deep Systems Thinking", progress: 45, category: "Strategy" },
+  { title: "Narrative & Influence", progress: 28, category: "Communication" },
+  { title: "Ethical AI Governance", progress: 10, category: "Emerging" },
+];
+
+const connections = [
   {
-    time: "Today, 9:14 AM",
-    type: "voice",
-    content: "Realized our vendor selection for cloud infra was driven by latency requirements in APAC — not cost. This context is missing from the wiki.",
-    tag: "Tacit Knowledge",
+    name: "Anya Patel",
+    role: "Design Lead",
+    reason: "You both value deep-work rituals and async collaboration.",
+    initials: "AP",
   },
   {
-    time: "Yesterday, 3:42 PM",
-    type: "voice",
-    content: "Completed cross-functional sprint with Design. Key insight: our onboarding flow reduces churn by 18% when personalized in first 48h.",
-    tag: "Kinetic Knowledge",
+    name: "Marcus Chen",
+    role: "Staff Engineer",
+    reason: "Shared interest in systems thinking and mentorship.",
+    initials: "MC",
+  },
+];
+
+const recentInsights = [
+  {
+    text: "You mentioned feeling most productive in deep-work blocks between 9–11 AM.",
+    date: "Today",
+    indexed: false,
   },
   {
-    time: "Mar 1, 11:20 AM",
-    type: "reflection",
-    content: "Q1 goal alignment — shifted focus from feature velocity to retention metrics. Personal purpose sync: building tools that respect human growth curves.",
-    tag: "Purpose Alignment",
+    text: "Recurring theme: you draw energy from mentoring others through ambiguity.",
+    date: "Yesterday",
+    indexed: true,
   },
   {
-    time: "Feb 27, 2:05 PM",
-    type: "voice",
-    content: "Mentored two new engineers on our deployment pipeline. Documented the 'why' behind our blue-green strategy.",
-    tag: "Knowledge Transfer",
+    text: "You reflected on wanting more ownership over architectural decisions.",
+    date: "Mar 1",
+    indexed: false,
   },
 ];
 
 const LivingLedger = () => {
-  const gradientId = useMemo(() => "eltvGradient", []);
+  const [insightPrivacy, setInsightPrivacy] = useState<Record<number, boolean>>(
+    Object.fromEntries(recentInsights.map((_, i) => [i, !recentInsights[i].indexed]))
+  );
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-8">
+    <div className="p-8 max-w-5xl mx-auto space-y-10">
       {/* Header */}
-      <div className="flex items-end justify-between">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mb-1">
-            Employee Dashboard
-          </p>
-          <h2 className="font-heading text-3xl font-bold tracking-tight">
-            Living Ledger
-          </h2>
-        </div>
-        <div className="text-right">
-          <p className="text-sm text-muted-foreground">Current ELTV</p>
-          <p className="font-heading text-2xl font-bold text-gradient-aura">
-            $142,800
-          </p>
-        </div>
+      <div>
+        <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-2">
+          Your Growth Ledger
+        </p>
+        <h1 className="font-serif text-4xl tracking-tight text-foreground" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+          Welcome to your Era, <span className="italic">Alex</span>.
+        </h1>
+        <p className="text-sm text-muted-foreground mt-2 max-w-lg">
+          A quiet space for reflection, alignment, and intentional growth.
+        </p>
       </div>
 
-      {/* ELTV Curve */}
-      <div className="bg-card rounded-xl border border-border p-6 relative overflow-hidden">
-        {/* Aura blob */}
-        <div className="aura-blob w-48 h-48 bg-aura-cyan/20 top-0 right-0" />
-        <div className="aura-blob w-32 h-32 bg-aura-magenta/15 bottom-0 left-1/3" style={{ animationDelay: "3s" }} />
+      {/* Personal Vault — Voice Reflections (PROMINENT) */}
+      <section className="rounded-xl border border-border bg-card p-6 relative overflow-hidden">
+        <div className="aura-blob w-40 h-40 bg-aura-cyan/10 -top-10 -right-10" />
+        <div className="aura-blob w-28 h-28 bg-aura-violet/8 bottom-0 left-1/4" style={{ animationDelay: "4s" }} />
 
         <div className="relative z-10">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-5">
             <div>
-              <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                ELTV Curve — Employee Lifetime Value
-              </h3>
+              <h2 className="text-lg font-semibold tracking-tight" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+                Personal Vault
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Voice Reflections · Private by default</p>
             </div>
-            <div className="flex gap-4 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-aura-cyan" />
-                Contribution
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-aura-magenta" />
-                Breakeven
-              </span>
-            </div>
+            <button className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-foreground text-background text-xs font-medium hover:opacity-90 transition-opacity">
+              <Mic className="w-3.5 h-3.5" />
+              Record
+            </button>
           </div>
 
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={eltvData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(174, 80%, 50%)" stopOpacity={0.3} />
-                  <stop offset="50%" stopColor="hsl(330, 85%, 60%)" stopOpacity={0.1} />
-                  <stop offset="100%" stopColor="hsl(174, 80%, 50%)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 14%, 92%)" />
-              <XAxis
-                dataKey="month"
-                tick={{ fontSize: 11, fill: "hsl(220, 10%, 50%)" }}
-                axisLine={{ stroke: "hsl(220, 14%, 92%)" }}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: "hsl(220, 10%, 50%)" }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => `${v}%`}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "hsl(0, 0%, 100%)",
-                  border: "1px solid hsl(220, 14%, 92%)",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                }}
-              />
-              <ReferenceLine y={0} stroke="hsl(330, 85%, 60%)" strokeDasharray="4 4" strokeOpacity={0.5} />
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke="hsl(174, 80%, 50%)"
-                strokeWidth={2}
-                fill={`url(#${gradientId})`}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-
-          <div className="flex justify-between mt-4 text-xs text-muted-foreground px-2">
-            <span>← Negative Contribution (Onboarding)</span>
-            <span>Maximum Potential →</span>
+          <div className="space-y-3">
+            {recentInsights.map((insight, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-3 p-3.5 rounded-lg border border-border bg-secondary/30 group"
+              >
+                <Sparkles className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm leading-relaxed text-foreground">{insight.text}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1.5">{insight.date}</p>
+                </div>
+                <button
+                  onClick={() => setInsightPrivacy(prev => ({ ...prev, [i]: !prev[i] }))}
+                  className="shrink-0 p-1.5 rounded-md hover:bg-secondary transition-colors"
+                  title={insightPrivacy[i] ? "Private — only you can see this" : "Indexed — visible to your organization"}
+                >
+                  {insightPrivacy[i] ? (
+                    <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                  ) : (
+                    <LockOpen className="w-3.5 h-3.5 text-primary" />
+                  )}
+                </button>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Growth Diary */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-heading text-lg font-semibold">Growth Diary</h3>
-          <button className="text-xs text-primary hover:text-primary/80 transition-colors font-medium flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-aura-magenta animate-pulse-soft" />
-            Voice Entry
-          </button>
-        </div>
+      {/* Two-column: Impact & Learning */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Impact & Alignment */}
+        <section className="rounded-xl border border-border bg-card p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <BookOpen className="w-4 h-4 text-muted-foreground" />
+            <h2 className="text-base font-semibold tracking-tight" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+              Impact & Alignment
+            </h2>
+          </div>
+          <div className="space-y-4">
+            {completedProjects.map((p, i) => (
+              <div key={i} className="group">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-foreground">{p.project}</p>
+                  <span className="text-[10px] text-muted-foreground">{p.date}</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Skill gained: <span className="text-foreground font-medium">{p.skillGained}</span>
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                  <ChevronRight className="w-3 h-3" />
+                  Aligned with: {p.alignedGoal}
+                </p>
+                {i < completedProjects.length - 1 && (
+                  <div className="border-b border-border mt-4" />
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
 
-        <div className="space-y-3">
-          {growthDiary.map((entry, i) => (
-            <div
-              key={i}
-              className="bg-card border border-border rounded-lg p-4 hover:border-primary/20 transition-colors relative overflow-hidden group"
-            >
-              <div className="absolute inset-0 aura-gradient opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-muted-foreground">{entry.time}</span>
-                  <span className="text-[10px] uppercase tracking-wider text-primary font-medium bg-primary/5 px-2 py-0.5 rounded-full">
-                    {entry.tag}
+        {/* Learning Path */}
+        <section className="rounded-xl border border-border bg-card p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <Sparkles className="w-4 h-4 text-muted-foreground" />
+            <h2 className="text-base font-semibold tracking-tight" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+              Suggested Growth Nodes
+            </h2>
+          </div>
+          <div className="space-y-5">
+            {growthNodes.map((node, i) => (
+              <div key={i}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-sm font-medium text-foreground">{node.title}</p>
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {node.category}
                   </span>
                 </div>
-                <p className="text-sm leading-relaxed">{entry.content}</p>
+                <div className="flex items-center gap-3">
+                  <Progress value={node.progress} className="h-1.5 flex-1 bg-secondary" />
+                  <span className="text-[11px] text-muted-foreground w-8 text-right">{node.progress}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      {/* Social Compass */}
+      <section className="rounded-xl border border-border bg-card p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <Users className="w-4 h-4 text-muted-foreground" />
+          <h2 className="text-base font-semibold tracking-tight" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+            Social Compass
+          </h2>
+          <span className="text-[10px] text-muted-foreground ml-1">· Connections</span>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          {connections.map((c, i) => (
+            <div
+              key={i}
+              className="flex items-start gap-3.5 p-4 rounded-lg border border-border bg-secondary/20 hover:border-primary/15 transition-colors"
+            >
+              <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-xs font-medium text-muted-foreground shrink-0">
+                {c.initials}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">{c.name}</p>
+                <p className="text-[11px] text-muted-foreground">{c.role}</p>
+                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed italic">
+                  "{c.reason}"
+                </p>
               </div>
             </div>
           ))}
         </div>
-      </div>
+      </section>
     </div>
   );
 };
