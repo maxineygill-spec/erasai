@@ -20,9 +20,9 @@ const AppLayout = () => {
 
         {/* Nav */}
         <nav className="flex-1 p-4 space-y-1">
-          <SideNavLink to="/" icon={BarChart3} label="Living Ledger" />
+          <SideNavLink to="/" icon={BarChart3} label="Growth Journey" />
           <SideNavLink to="/discovery" icon={Brain} label="Discovery Interview" />
-          <SideNavLink to="/knowledge" icon={MessageSquare} label="Knowledge Clone" />
+          <SideNavLink to="/knowledge" icon={MessageSquare} label="Knowledge Repository" />
           <SideNavLink to="/command" icon={Shield} label="Endurance Command" />
         </nav>
 
