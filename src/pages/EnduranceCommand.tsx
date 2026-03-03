@@ -2,20 +2,20 @@ import { TrendingUp, Users, AlertTriangle, DollarSign, ArrowUpRight } from "luci
 
 const metrics = [
 {
-  label: "Cost of Institutional Erasure",
-  value: "$45,236",
-  sub: "per departing head",
+  label: "Knowledge Equity",
+  value: "$2.4M",
+  sub: "Estimated financial value of indexed documentation",
   icon: DollarSign,
   aura: "aura-glow-orange",
   color: "text-aura-orange",
   bgColor: "bg-aura-orange/10",
-  change: "-12% with Dürer",
+  change: "-5% this month",
   positive: true
 },
 {
-  label: "ELTV Multiplier",
-  value: "2.7x",
-  sub: "vs. industry baseline",
+  label: "Alignment Velocity",
+  value: "48%",
+  sub: " How closely team projects are currently hitting \"Personal North Stars\" ",
   icon: TrendingUp,
   aura: "aura-glow-cyan",
   color: "text-aura-cyan",
@@ -24,25 +24,25 @@ const metrics = [
   positive: true
 },
 {
-  label: "Attrition Risk Window",
-  value: "20%",
-  sub: "workforce in risk zone",
+  label: "Successor Readiness",
+  value: "72%",
+  sub: " How much institutional knowledge can be queried ",
   icon: AlertTriangle,
   aura: "aura-glow-magenta",
   color: "text-aura-magenta",
   bgColor: "bg-aura-magenta/10",
-  change: "3 high-risk this month",
+  change: "1 high-risk position",
   positive: false
 },
 {
-  label: "Market Opportunity",
-  value: "$8.3B",
-  sub: "addressable market",
+  label: "Discovery Latency",
+  value: "-22%",
+  sub: "Reduction in time spent searching for source of truth",
   icon: Users,
   aura: "aura-glow-green",
   color: "text-aura-green",
   bgColor: "bg-aura-green/10",
-  change: "TAM growing 24% YoY",
+  change: "-0.5% this month",
   positive: true
 }];
 
