@@ -10,7 +10,7 @@ const AppLayout = () => {
         {/* Logo */}
         <div className="p-6 border-b border-border">
           <h1 className="font-heading text-xl font-bold tracking-tight">
-            <span className="text-gradient-aura">dürer</span>
+            <span className="text-gradient-aura">era</span>
             <span className="text-muted-foreground font-light">.ai</span>
           </h1>
           <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mt-1">
@@ -36,8 +36,8 @@ const AppLayout = () => {
       <main className="flex-1 overflow-y-auto">
         <Outlet />
       </main>
-    </div>
-  );
+    </div>);
+
 };
 
 export default AppLayout;
