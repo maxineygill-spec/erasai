@@ -8,6 +8,7 @@ import FounderOnboarding from "./pages/FounderOnboarding";
 import FounderDashboard from "./pages/FounderDashboard";
 import EmployeeOnboarding from "./pages/EmployeeOnboarding";
 import EmployeeLedger from "./pages/EmployeeLedger";
+import DiscoveryInterview from "./pages/DiscoveryInterview";
 import DashboardLayout from "./components/DashboardLayout";
 import NotFound from "./pages/NotFound";
 
