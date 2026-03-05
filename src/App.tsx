@@ -3,12 +3,12 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import AppLayout from "./components/AppLayout";
-import LivingLedger from "./pages/LivingLedger";
-import DiscoveryInterview from "./pages/DiscoveryInterview";
-import KnowledgeClone from "./pages/KnowledgeClone";
-import EnduranceCommand from "./pages/EnduranceCommand";
-import SettingsPage from "./pages/SettingsPage";
+import RoleSelection from "./pages/RoleSelection";
+import FounderOnboarding from "./pages/FounderOnboarding";
+import FounderDashboard from "./pages/FounderDashboard";
+import EmployeeOnboarding from "./pages/EmployeeOnboarding";
+import EmployeeLedger from "./pages/EmployeeLedger";
+import DashboardLayout from "./components/DashboardLayout";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,12 +20,14 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<LivingLedger />} />
-            <Route path="/discovery" element={<DiscoveryInterview />} />
-            <Route path="/knowledge" element={<KnowledgeClone />} />
-            <Route path="/command" element={<EnduranceCommand />} />
-            <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/" element={<RoleSelection />} />
+          <Route path="/founder" element={<FounderOnboarding />} />
+          <Route element={<DashboardLayout role="founder" />}>
+            <Route path="/founder/dashboard" element={<FounderDashboard />} />
+          </Route>
+          <Route path="/employee" element={<EmployeeOnboarding />} />
+          <Route element={<DashboardLayout role="employee" />}>
+            <Route path="/employee/ledger" element={<EmployeeLedger />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
