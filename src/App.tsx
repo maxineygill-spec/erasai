@@ -23,6 +23,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<RoleSelection />} />
           <Route path="/founder" element={<FounderOnboarding />} />
+          <Route path="/founder/interview" element={<DiscoveryInterview />} />
           <Route element={<DashboardLayout role="founder" />}>
             <Route path="/founder/dashboard" element={<FounderDashboard />} />
           </Route>
