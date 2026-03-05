@@ -8,6 +8,7 @@ import FounderOnboarding from "./pages/FounderOnboarding";
 import FounderDashboard from "./pages/FounderDashboard";
 import EmployeeOnboarding from "./pages/EmployeeOnboarding";
 import EmployeeLedger from "./pages/EmployeeLedger";
+import DiscoveryInterview from "./pages/DiscoveryInterview";
 import DashboardLayout from "./components/DashboardLayout";
 import NotFound from "./pages/NotFound";
 
@@ -22,6 +23,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<RoleSelection />} />
           <Route path="/founder" element={<FounderOnboarding />} />
+          <Route path="/founder/interview" element={<DiscoveryInterview />} />
           <Route element={<DashboardLayout role="founder" />}>
             <Route path="/founder/dashboard" element={<FounderDashboard />} />
           </Route>
