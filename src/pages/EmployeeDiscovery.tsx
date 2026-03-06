@@ -2,24 +2,27 @@ import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { founderQuestions } from "@/data/founderQuestions";
+import { employeeQuestions } from "@/data/employeeQuestions";
 import { VoiceCapture } from "@/components/VoiceCapture";
 import { SynthesisDisplay } from "@/components/SynthesisDisplay";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { synthesize, saveLedger } from "@/lib/api";
 import type { Response as DiscoveryResponse } from "@/types/discovery";
 
-const FOUNDER_COMPLETION_HEADLINE = "Your institutional logic has been captured.";
-const FOUNDER_COMPLETION_SUBTEXT =
-  "Eight answers. A lifetime of reasoning. Now it compounds instead of disappearing.";
+const EMPLOYEE_COMPLETION_HEADLINE = "Your growth trajectory has been mapped.";
+const EMPLOYEE_COMPLETION_SUBTEXT =
+  "Ten questions. A compass for everything that comes next. This is the beginning of your era here.";
 const TRANSITION_DURATION_MS = 2000;
 
-export default function DiscoveryInterview() {
+export default function EmployeeDiscovery() {
   const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [state, setState] = useState<"idle" | "listening" | "processing" | "displaying" | "transitioning" | "complete">("idle");
+  const [state, setState] = useState<
+    "idle" | "listening" | "processing" | "displaying" | "complete"
+  >("idle");
   const [responses, setResponses] = useState<DiscoveryResponse[]>([]);
-  const [currentSynthesis, setCurrentSynthesis] = useState<DiscoveryResponse | null>(null);
+  const [currentSynthesis, setCurrentSynthesis] =
+    useState<DiscoveryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const {
@@ -31,9 +34,9 @@ export default function DiscoveryInterview() {
     stopListening,
   } = useSpeechRecognition();
 
-  const question = founderQuestions[currentIndex];
-  const progress = ((currentIndex + 1) / founderQuestions.length) * 100;
-  const isLastQuestion = currentIndex === founderQuestions.length - 1;
+  const question = employeeQuestions[currentIndex];
+  const progress = ((currentIndex + 1) / employeeQuestions.length) * 100;
+  const isLastQuestion = currentIndex === employeeQuestions.length - 1;
 
   const handleStartCapture = useCallback(() => {
     setError(null);
@@ -55,7 +58,7 @@ export default function DiscoveryInterview() {
         transcript: transcript.trim(),
         question: question.text,
         category: question.category,
-        protocol: "founder",
+        protocol: "employee",
         questionIndex: currentIndex,
       });
       const response: DiscoveryResponse = {
@@ -83,24 +86,23 @@ export default function DiscoveryInterview() {
       setState("complete");
       return;
     }
-    setState("transitioning");
-    setTimeout(() => {
-      setCurrentIndex((i) => i + 1);
-      setState("idle");
-    }, TRANSITION_DURATION_MS);
+    setCurrentIndex((i) => i + 1);
+    setState("idle");
   }, [isLastQuestion]);
 
   const handleViewLivingLedger = useCallback(async () => {
-    const userId = (window as unknown as { __erasUserId?: string }).__erasUserId ?? "00000000-0000-0000-0000-000000000000";
+    const userId =
+      (window as unknown as { __erasUserId?: string }).__erasUserId ??
+      "00000000-0000-0000-0000-000000000000";
     try {
       await saveLedger({
         userId,
-        protocol: "founder",
+        protocol: "employee",
         responses,
         completedAt: new Date().toISOString(),
       });
     } catch {
-      // still navigate; user can retry save later
+      // still navigate
     }
     navigate("/living-ledger");
   }, [responses, navigate]);
@@ -117,7 +119,10 @@ export default function DiscoveryInterview() {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8 relative overflow-hidden">
         <div className="aura-blob w-72 h-72 bg-aura-cyan/20 top-1/4 left-1/4" />
-        <div className="aura-blob w-56 h-56 bg-aura-magenta/15 bottom-1/3 right-1/4" style={{ animationDelay: "2s" }} />
+        <div
+          className="aura-blob w-56 h-56 bg-aura-magenta/15 bottom-1/3 right-1/4"
+          style={{ animationDelay: "2s" }}
+        />
         <div className="relative z-10 w-full max-w-2xl">
           <SynthesisDisplay
             insight={currentSynthesis.insight}
@@ -129,35 +134,23 @@ export default function DiscoveryInterview() {
     );
   }
 
-  if (state === "transitioning") {
-    const nextTransition = question?.transition;
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-8 relative overflow-hidden">
-        <div className="aura-blob w-72 h-72 bg-aura-cyan/20 top-1/4 left-1/4" />
-        <p
-          className="relative z-10 text-center text-lg italic text-muted-foreground max-w-md"
-          style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-        >
-          {nextTransition}
-        </p>
-      </div>
-    );
-  }
-
   if (state === "complete") {
     return (
       <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
         <div className="aura-blob w-80 h-80 bg-aura-cyan/10 -top-32 -left-32" />
-        <div className="aura-blob w-60 h-60 bg-aura-magenta/8 bottom-20 right-10" style={{ animationDelay: "2s" }} />
+        <div
+          className="aura-blob w-60 h-60 bg-aura-magenta/8 bottom-20 right-10"
+          style={{ animationDelay: "2s" }}
+        />
         <div className="flex-1 flex flex-col items-center justify-center p-8 relative z-10">
           <h2
             className="text-2xl md:text-3xl font-heading font-bold text-center mb-4 max-w-xl"
             style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
           >
-            {FOUNDER_COMPLETION_HEADLINE}
+            {EMPLOYEE_COMPLETION_HEADLINE}
           </h2>
           <p className="text-muted-foreground text-center mb-10 max-w-lg">
-            {FOUNDER_COMPLETION_SUBTEXT}
+            {EMPLOYEE_COMPLETION_SUBTEXT}
           </p>
           <div className="w-full max-w-lg max-h-64 overflow-y-auto rounded-lg border border-border bg-card/50 p-4 mb-10">
             <ul className="space-y-3">
@@ -187,8 +180,14 @@ export default function DiscoveryInterview() {
   return (
     <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
       <div className="aura-blob w-80 h-80 bg-aura-cyan/8 -top-32 -left-32" />
-      <div className="aura-blob w-60 h-60 bg-aura-magenta/6 bottom-20 right-10" style={{ animationDelay: "3s" }} />
-      <div className="aura-blob w-48 h-48 bg-aura-violet/5 top-1/2 left-1/3" style={{ animationDelay: "5s" }} />
+      <div
+        className="aura-blob w-60 h-60 bg-aura-magenta/6 bottom-20 right-10"
+        style={{ animationDelay: "3s" }}
+      />
+      <div
+        className="aura-blob w-48 h-48 bg-aura-violet/5 top-1/2 left-1/3"
+        style={{ animationDelay: "5s" }}
+      />
 
       <header className="relative z-10 p-8 pb-0">
         <h1 className="font-heading text-xl font-bold tracking-tight">
@@ -196,7 +195,7 @@ export default function DiscoveryInterview() {
           <span className="text-muted-foreground font-light">.ai</span>
         </h1>
         <p className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mt-1">
-          Discovery Protocol
+          Employee Discovery
         </p>
       </header>
 
@@ -204,7 +203,7 @@ export default function DiscoveryInterview() {
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-              Question {currentIndex + 1} of {founderQuestions.length}
+              Question {currentIndex + 1} of {employeeQuestions.length}
             </span>
           </div>
           <Progress value={progress} className="h-0.5 opacity-40" />
@@ -222,9 +221,7 @@ export default function DiscoveryInterview() {
           >
             &quot;{question.text}&quot;
           </h3>
-          {error && (
-            <p className="text-sm text-destructive mb-4">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive mb-4">{error}</p>}
           <VoiceCapture
             isListening={isListening}
             isSupported={isSupported}
@@ -237,7 +234,9 @@ export default function DiscoveryInterview() {
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <button
             type="button"
-            onClick={() => currentIndex > 0 && setCurrentIndex((i) => i - 1)}
+            onClick={() =>
+              currentIndex > 0 && setCurrentIndex((i) => i - 1)
+            }
             disabled={currentIndex === 0}
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-0"
           >
@@ -245,7 +244,9 @@ export default function DiscoveryInterview() {
           </button>
           <button
             type="button"
-            onClick={() => !isLastQuestion && setCurrentIndex((i) => i + 1)}
+            onClick={() =>
+              !isLastQuestion && setCurrentIndex((i) => i + 1)
+            }
             className="flex items-center gap-2 text-sm text-muted-foreground/50 hover:text-muted-foreground transition-colors"
           >
             Skip <ArrowRight className="w-4 h-4" />

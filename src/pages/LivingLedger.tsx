@@ -1,7 +1,38 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Lock, LockOpen, Mic, BookOpen, Users, Sparkles, ChevronRight } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { Switch } from "@/components/ui/switch";
+import { supabase } from "@/lib/supabase";
+import type { Response } from "@/types/discovery";
+
+interface LedgerEntry {
+  id: string;
+  protocol_type: string;
+  responses: Response[];
+  completed_at: string | null;
+  created_at: string;
+}
+
+async function fetchLedgerEntries(): Promise<{ text: string; date: string; indexed: boolean }[]> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data, error } = await supabase
+    .from("living_ledger_entries")
+    .select("id, protocol_type, responses, completed_at, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+  if (error) return [];
+  const entries = (data ?? []) as LedgerEntry[];
+  const insights: { text: string; date: string; indexed: boolean }[] = [];
+  for (const entry of entries) {
+    const date = entry.completed_at ?? entry.created_at;
+    const displayDate = date ? new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: date.includes("202") ? "numeric" : undefined }) : "";
+    for (const r of entry.responses ?? []) {
+      insights.push({ text: r.insight, date: displayDate, indexed: false });
+    }
+  }
+  return insights;
+}
 
 const completedProjects = [
 {
@@ -46,27 +77,20 @@ const connections = [
 }];
 
 
-const recentInsights = [
-{
-  text: "You mentioned feeling most productive in deep-work blocks between 9–11 AM.",
-  date: "Today",
-  indexed: false
-},
-{
-  text: "Recurring theme: you draw energy from mentoring others through ambiguity.",
-  date: "Yesterday",
-  indexed: true
-},
-{
-  text: "You reflected on wanting more ownership over architectural decisions.",
-  date: "Mar 1",
-  indexed: false
-}];
-
+const fallbackInsights = [
+  { text: "You mentioned feeling most productive in deep-work blocks between 9–11 AM.", date: "Today", indexed: false },
+  { text: "Recurring theme: you draw energy from mentoring others through ambiguity.", date: "Yesterday", indexed: true },
+  { text: "You reflected on wanting more ownership over architectural decisions.", date: "Mar 1", indexed: false },
+];
 
 const LivingLedger = () => {
+  const { data: ledgerInsights = [] } = useQuery({
+    queryKey: ["living-ledger-entries"],
+    queryFn: fetchLedgerEntries,
+  });
+  const recentInsights = ledgerInsights.length > 0 ? ledgerInsights : fallbackInsights;
   const [insightPrivacy, setInsightPrivacy] = useState<Record<number, boolean>>(
-    Object.fromEntries(recentInsights.map((_, i) => [i, !recentInsights[i].indexed]))
+    () => Object.fromEntries(recentInsights.map((_, i) => [i, !recentInsights[i].indexed]))
   );
 
   return (

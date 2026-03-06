@@ -9,6 +9,8 @@ import FounderDashboard from "./pages/FounderDashboard";
 import EmployeeOnboarding from "./pages/EmployeeOnboarding";
 import EmployeeLedger from "./pages/EmployeeLedger";
 import DiscoveryInterview from "./pages/DiscoveryInterview";
+import EmployeeDiscovery from "./pages/EmployeeDiscovery";
+import LivingLedger from "./pages/LivingLedger";
 import DashboardLayout from "./components/DashboardLayout";
 import NotFound from "./pages/NotFound";
 
@@ -28,9 +30,11 @@ const App = () => (
             <Route path="/founder/dashboard" element={<FounderDashboard />} />
           </Route>
           <Route path="/employee" element={<EmployeeOnboarding />} />
+          <Route path="/employee/discovery" element={<EmployeeDiscovery />} />
           <Route element={<DashboardLayout role="employee" />}>
             <Route path="/employee/ledger" element={<EmployeeLedger />} />
           </Route>
+          <Route path="/living-ledger" element={<LivingLedger />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
