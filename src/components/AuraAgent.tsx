@@ -226,3 +226,120 @@ function useTypewriter(text: string, speed = 18) {
 
   return { displayed, done };
 }
+
+// ── RoleSelect ────────────────────────────────────────────────────────────────
+function RoleSelect({ onSelect }: { onSelect: (role: Role) => void }) {
+  const [hovered, setHovered] = useState<Role | null>(null);
+
+  return (
+    <div style={{
+      minHeight: "100dvh",
+      background: WARM_BG,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "40px 20px",
+      fontFamily: "'Inter Tight', sans-serif",
+    }}>
+      <p style={{
+        fontFamily: "'Montserrat', sans-serif",
+        fontWeight: 700,
+        fontSize: 13,
+        letterSpacing: "0.18em",
+        color: TEAL,
+        textTransform: "uppercase",
+        marginBottom: 16,
+      }}>
+        ERAS AI
+      </p>
+
+      <h1 style={{
+        fontSize: "clamp(26px, 5vw, 40px)",
+        fontWeight: 300,
+        color: Q_COLOR,
+        textAlign: "center",
+        lineHeight: 1.25,
+        marginBottom: 12,
+        maxWidth: 560,
+      }}>
+        Who are you here as?
+      </h1>
+
+      <p style={{
+        fontSize: 15,
+        color: AG_COLOR,
+        textAlign: "center",
+        marginBottom: 52,
+        maxWidth: 400,
+        lineHeight: 1.6,
+      }}>
+        Your session is shaped around your perspective.
+      </p>
+
+      <div style={{
+        display: "flex",
+        gap: 20,
+        flexWrap: "wrap",
+        justifyContent: "center",
+        width: "100%",
+        maxWidth: 700,
+      }}>
+        {(Object.keys(ROLE_CONFIG) as Role[]).map((role) => {
+          const cfg = ROLE_CONFIG[role];
+          const isHovered = hovered === role;
+          return (
+            <button
+              key={role}
+              onMouseEnter={() => setHovered(role)}
+              onMouseLeave={() => setHovered(null)}
+              onClick={() => onSelect(role)}
+              style={{
+                flex: "1 1 260px",
+                maxWidth: 320,
+                background: isHovered ? cfg.blobHex : "#fff",
+                border: `1.5px solid ${isHovered ? cfg.blobHex : "rgba(22,20,16,0.10)"}`,
+                borderRadius: 18,
+                padding: "32px 28px",
+                cursor: "pointer",
+                textAlign: "left",
+                transition: "background 0.18s, border-color 0.18s, transform 0.15s",
+                transform: isHovered ? "translateY(-3px)" : "none",
+                boxShadow: isHovered
+                  ? `0 12px 32px ${cfg.blobHex}44`
+                  : "0 2px 8px rgba(0,0,0,0.05)",
+              }}
+            >
+              <div style={{
+                fontSize: 28,
+                marginBottom: 14,
+                color: isHovered ? "#fff" : cfg.blobHex,
+                transition: "color 0.18s",
+              }}>
+                {cfg.icon}
+              </div>
+              <div style={{
+                fontFamily: "'Montserrat', sans-serif",
+                fontWeight: 700,
+                fontSize: 16,
+                color: isHovered ? "#fff" : Q_COLOR,
+                marginBottom: 10,
+                transition: "color 0.18s",
+              }}>
+                {cfg.label}
+              </div>
+              <div style={{
+                fontSize: 13.5,
+                color: isHovered ? "rgba(255,255,255,0.82)" : AG_COLOR,
+                lineHeight: 1.6,
+                transition: "color 0.18s",
+              }}>
+                {cfg.sub}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
