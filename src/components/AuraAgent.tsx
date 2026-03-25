@@ -826,3 +826,100 @@ function Interview({
     </div>
   );
 }
+
+// ── AuraAgent (root) ──────────────────────────────────────────────────────────
+type Screen = "select" | "interview" | "complete";
+
+export default function AuraAgent() {
+  const [screen,  setScreen]  = useState<Screen>("select");
+  const [role,    setRole]    = useState<Role | null>(null);
+  const [answers, setAnswers] = useState<string[]>([]);
+
+  // Inject Google Fonts once
+  useEffect(() => {
+    if (document.getElementById("aura-fonts")) return;
+    const link = document.createElement("link");
+    link.id   = "aura-fonts";
+    link.rel  = "stylesheet";
+    link.href = FONT_LINK;
+    document.head.appendChild(link);
+  }, []);
+
+  if (screen === "select") {
+    return (
+      <RoleSelect
+        onSelect={(r) => {
+          setRole(r);
+          setScreen("interview");
+        }}
+      />
+    );
+  }
+
+  if (screen === "interview" && role) {
+    return (
+      <Interview
+        role={role}
+        onComplete={(ans) => {
+          setAnswers(ans);
+          setScreen("complete");
+        }}
+      />
+    );
+  }
+
+  // ── Complete screen ──────────────────────────────────────────────────────
+  const cfg = role ? ROLE_CONFIG[role] : ROLE_CONFIG.founder;
+  return (
+    <div style={{
+      minHeight: "100dvh", background: cfg.pageBg,
+      display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      padding: "40px 24px",
+      fontFamily: "'Inter Tight', sans-serif",
+    }}>
+      <Blob state="complete" cr={cfg.cr} cg={cfg.cg} cb={cfg.cb} amplitude={0} />
+
+      <p style={{
+        fontFamily: "'Montserrat', sans-serif", fontWeight: 700,
+        fontSize: 13, letterSpacing: "0.18em", color: TEAL,
+        textTransform: "uppercase", marginTop: 28, marginBottom: 14,
+      }}>ERAS AI</p>
+
+      <h2 style={{
+        fontSize: "clamp(22px, 4vw, 34px)", fontWeight: 300,
+        color: cfg.qColor, textAlign: "center",
+        lineHeight: 1.3, marginBottom: 12, maxWidth: 480,
+      }}>
+        That's everything.
+      </h2>
+
+      <p style={{
+        fontSize: 15, color: cfg.agColor, textAlign: "center",
+        marginBottom: 16, maxWidth: 400, lineHeight: 1.7,
+      }}>
+        {answers.filter(Boolean).length} of {answers.length} questions answered.
+        Your responses have been captured.
+      </p>
+
+      <button
+        onClick={() => {
+          setScreen("select");
+          setRole(null);
+          setAnswers([]);
+        }}
+        style={{
+          marginTop: 28,
+          background: "none",
+          border: `1.5px solid rgba(22,20,16,0.15)`,
+          borderRadius: 50, padding: "11px 32px",
+          fontSize: 13, fontFamily: "'Inter Tight', sans-serif",
+          color: cfg.agColor, cursor: "pointer",
+          letterSpacing: "0.04em",
+        }}
+      >
+        Start over
+      </button>
+    </div>
+  );
+}
