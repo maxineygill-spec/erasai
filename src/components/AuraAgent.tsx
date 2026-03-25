@@ -94,3 +94,109 @@ function noise2(x: number, y: number): number {
     v
   );
 }
+
+// ── Blob ──────────────────────────────────────────────────────────────────────
+function Blob({
+  state, cr, cg, cb, amplitude,
+}: {
+  state: AgentState;
+  cr: number; cg: number; cb: number;
+  amplitude: number;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rafRef    = useRef<number>(0);
+  const tRef      = useRef(0);
+  const stateRef  = useRef(state);
+  const ampRef    = useRef(amplitude);
+
+  useEffect(() => { stateRef.current = state; }, [state]);
+  useEffect(() => { ampRef.current = amplitude; }, [amplitude]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d")!;
+    const SIZE = canvas.width; // 360 px
+    const cx = SIZE / 2, cy = SIZE / 2;
+    const PTS = 200;
+
+    const SPEEDS: Record<AgentState, number> = {
+      idle: 0.0009, speaking: 0.0022, listening: 0.0016,
+      thinking: 0.0010, complete: 0.0006,
+    };
+    const BASE_R = SIZE * 0.32;
+    const WOBBLE: Record<AgentState, number> = {
+      idle:      SIZE * 0.055,
+      speaking:  SIZE * 0.095,
+      listening: SIZE * 0.075,
+      thinking:  SIZE * 0.038,
+      complete:  SIZE * 0.025,
+    };
+
+    function draw() {
+      const s = stateRef.current;
+      tRef.current += SPEEDS[s];
+      const t = tRef.current;
+      const mic = ampRef.current;
+
+      ctx.clearRect(0, 0, SIZE, SIZE);
+
+      const pts: [number, number][] = [];
+      for (let i = 0; i < PTS; i++) {
+        const angle = (i / PTS) * Math.PI * 2;
+        const nx = Math.cos(angle) * 0.9 + t * 0.5;
+        const ny = Math.sin(angle) * 0.9 + t * 0.38;
+        const n1 = noise2(nx, ny);
+        const n2 = noise2(nx * 1.7 + 4.3, ny * 1.7 + 1.8) * 0.18;
+        const nMic = s === "listening"
+          ? noise2(nx * 2.2 + t * 1.5, ny * 2.2) * mic * 0.30
+          : 0;
+        const n = (n1 + n2 + nMic + 1.18) / 2.36;
+        const r = BASE_R + WOBBLE[s] * n;
+        pts.push([cx + Math.cos(angle) * r, cy + Math.sin(angle) * r]);
+      }
+
+      // Smooth closed Catmull-Rom spline
+      ctx.beginPath();
+      for (let i = 0; i < PTS; i++) {
+        const [px, py] = pts[(i - 1 + PTS) % PTS];
+        const [x1, y1] = pts[i];
+        const [x2, y2] = pts[(i + 1) % PTS];
+        const [x3, y3] = pts[(i + 2) % PTS];
+        const cp1x = x1 + (x2 - px) / 6, cp1y = y1 + (y2 - py) / 6;
+        const cp2x = x2 - (x3 - x1) / 6, cp2y = y2 - (y3 - y1) / 6;
+        if (i === 0) ctx.moveTo(x1, y1);
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x2, y2);
+      }
+      ctx.closePath();
+
+      ctx.save();
+      ctx.clip();
+
+      const maxR = BASE_R + WOBBLE[s];
+      const fill = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR * 1.05);
+      fill.addColorStop(0,    `rgba(${cr},${cg},${cb},1.00)`);
+      fill.addColorStop(0.55, `rgba(${cr},${cg},${cb},0.92)`);
+      fill.addColorStop(0.80, `rgba(${cr},${cg},${cb},0.55)`);
+      fill.addColorStop(0.93, `rgba(${cr},${cg},${cb},0.15)`);
+      fill.addColorStop(1,    `rgba(${cr},${cg},${cb},0.00)`);
+      ctx.fillStyle = fill;
+      ctx.fillRect(0, 0, SIZE, SIZE);
+      ctx.restore();
+
+      rafRef.current = requestAnimationFrame(draw);
+    }
+
+    draw();
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [cr, cg, cb]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={360}
+      height={360}
+      style={{ width: 280, height: 280, display: "block" }}
+    />
+  );
+}
