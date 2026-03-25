@@ -343,3 +343,486 @@ function RoleSelect({ onSelect }: { onSelect: (role: Role) => void }) {
     </div>
   );
 }
+
+// ── Interview ─────────────────────────────────────────────────────────────────
+function Interview({
+  role,
+  onComplete,
+}: {
+  role: Role;
+  onComplete: (answers: string[]) => void;
+}) {
+  const cfg       = ROLE_CONFIG[role];
+  const questions = cfg.questions as readonly string[];
+  const total     = questions.length;
+
+  const [qIdx,       setQIdx]       = useState(0);
+  const [agentState, setAgentState] = useState<AgentState>("idle");
+  const [answers,    setAnswers]    = useState<string[]>(() => Array(total).fill(""));
+  const [transcript, setTranscript] = useState("");
+  const [amplitude,  setAmplitude]  = useState(0);
+  const [textMode,   setTextMode]   = useState(false);
+  const [textInput,  setTextInput]  = useState("");
+  const [started,    setStarted]    = useState(false);
+
+  const recognitionRef = useRef<any>(null);
+  const audioCtxRef    = useRef<AudioContext | null>(null);
+  const analyserRef    = useRef<AnalyserNode | null>(null);
+  const streamRef      = useRef<MediaStream | null>(null);
+  const silenceRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rafRef         = useRef<number>(0);
+  const transcriptRef  = useRef("");
+  const qIdxRef        = useRef(0);
+  const answersRef     = useRef<string[]>(Array(total).fill(""));
+
+  useEffect(() => { qIdxRef.current   = qIdx;    }, [qIdx]);
+  useEffect(() => { answersRef.current = answers; }, [answers]);
+
+  // Typewriter runs as soon as started; resets each time qIdx changes
+  const { displayed, done: questionDone } = useTypewriter(
+    started ? questions[qIdx] : "",
+    20,
+  );
+
+  // ── Audio amplitude loop ───────────────────────────────────────────────────
+  const drawAmplitude = useCallback(() => {
+    if (!analyserRef.current) return;
+    const data = new Uint8Array(analyserRef.current.frequencyBinCount);
+    analyserRef.current.getByteFrequencyData(data);
+    const avg = data.reduce((s, v) => s + v, 0) / data.length;
+    setAmplitude(avg / 128);
+    rafRef.current = requestAnimationFrame(drawAmplitude);
+  }, []);
+
+  // ── Cleanup helpers ────────────────────────────────────────────────────────
+  const cleanupAudio = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    if (audioCtxRef.current?.state !== "closed") audioCtxRef.current?.close();
+    audioCtxRef.current = null;
+    analyserRef.current = null;
+    streamRef.current   = null;
+    setAmplitude(0);
+  }, []);
+
+  useEffect(() => () => {
+    try { recognitionRef.current?.stop(); } catch {}
+    if (silenceRef.current) clearTimeout(silenceRef.current);
+    cleanupAudio();
+  }, [cleanupAudio]);
+
+  // ── Advance to next question or call onComplete ────────────────────────────
+  const advance = useCallback((savedAnswer: string) => {
+    const idx     = qIdxRef.current;
+    const updated = [...answersRef.current];
+    updated[idx]  = savedAnswer;
+    setAnswers(updated);
+    answersRef.current = updated;
+
+    setAgentState("thinking");
+    setTimeout(() => {
+      if (idx + 1 < total) {
+        setQIdx(idx + 1);
+        setTranscript("");
+        transcriptRef.current = "";
+        setTextInput("");
+        setAgentState("speaking");
+      } else {
+        setAgentState("complete");
+        setTimeout(() => onComplete(updated), 1200);
+      }
+    }, 900);
+  }, [total, onComplete]);
+
+  // ── Stop recording ─────────────────────────────────────────────────────────
+  const stopListening = useCallback(() => {
+    try { recognitionRef.current?.stop(); } catch {}
+    if (silenceRef.current) clearTimeout(silenceRef.current);
+    cleanupAudio();
+    const saved = transcriptRef.current.trim();
+    if (saved) {
+      advance(saved);
+    } else {
+      setAgentState("listening"); // stay — nothing captured yet
+    }
+  }, [cleanupAudio, advance]);
+
+  // ── Start recording ────────────────────────────────────────────────────────
+  const startListening = useCallback(async () => {
+    const SR =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+    if (!SR) { setTextMode(true); return; }
+
+    transcriptRef.current = "";
+    setTranscript("");
+
+    // MediaStream → analyser for amplitude
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const ctx = new AudioContext();
+      audioCtxRef.current = ctx;
+      const src = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      src.connect(analyser);
+      analyserRef.current = analyser;
+      drawAmplitude();
+    } catch {
+      // No mic access — fall back to text
+      setTextMode(true);
+      setAgentState("listening");
+      return;
+    }
+
+    const rec = new SR();
+    rec.continuous      = true;
+    rec.interimResults  = true;
+    rec.lang            = "en-US";
+    recognitionRef.current = rec;
+
+    const resetSilence = () => {
+      if (silenceRef.current) clearTimeout(silenceRef.current);
+      silenceRef.current = setTimeout(stopListening, 2200);
+    };
+
+    rec.onresult = (e: any) => {
+      let full = "";
+      for (let i = 0; i < e.results.length; i++) full += e.results[i][0].transcript;
+      transcriptRef.current = full;
+      setTranscript(full);
+      resetSilence();
+    };
+    rec.onerror = () => stopListening();
+    rec.onend   = () => { cleanupAudio(); };
+
+    rec.start();
+    resetSilence();
+  }, [drawAmplitude, stopListening, cleanupAudio]);
+
+  // Once typewriter finishes the question, begin listening
+  useEffect(() => {
+    if (questionDone && agentState === "speaking") {
+      setAgentState("listening");
+      if (!textMode) startListening();
+    }
+  }, [questionDone, agentState, textMode, startListening]);
+
+  // ── Text-mode submit ───────────────────────────────────────────────────────
+  const submitText = useCallback(() => {
+    const val = textInput.trim();
+    if (!val) return;
+    advance(val);
+  }, [textInput, advance]);
+
+  // ── Nav helpers ────────────────────────────────────────────────────────────
+  const skip = useCallback(() => {
+    try { recognitionRef.current?.stop(); } catch {}
+    if (silenceRef.current) clearTimeout(silenceRef.current);
+    cleanupAudio();
+    advance(answersRef.current[qIdxRef.current] ?? "");
+  }, [cleanupAudio, advance]);
+
+  const back = useCallback(() => {
+    if (qIdxRef.current === 0) return;
+    try { recognitionRef.current?.stop(); } catch {}
+    if (silenceRef.current) clearTimeout(silenceRef.current);
+    cleanupAudio();
+    setTranscript("");
+    transcriptRef.current = "";
+    setTextInput("");
+    setQIdx((i) => i - 1);
+    setAgentState("speaking");
+  }, [cleanupAudio]);
+
+  // ── Derived ────────────────────────────────────────────────────────────────
+  const progress = ((qIdx + 1) / total) * 100;
+
+  const STATE_LABEL: Record<AgentState, string> = {
+    idle:      "",
+    speaking:  "ERAS is asking…",
+    listening: textMode ? "Type your answer below" : "Listening…",
+    thinking:  "Processing…",
+    complete:  "Complete",
+  };
+
+  const micColor =
+    agentState === "listening" ? cfg.blobHex : cfg.micIdle;
+
+  // ── Pre-start splash ───────────────────────────────────────────────────────
+  if (!started) {
+    return (
+      <div style={{
+        minHeight: "100dvh", background: cfg.pageBg,
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        padding: "40px 24px",
+        fontFamily: "'Inter Tight', sans-serif",
+      }}>
+        <Blob state="idle" cr={cfg.cr} cg={cfg.cg} cb={cfg.cb} amplitude={0} />
+
+        <p style={{
+          fontFamily: "'Montserrat', sans-serif", fontWeight: 700,
+          fontSize: 13, letterSpacing: "0.18em", color: TEAL,
+          textTransform: "uppercase", marginTop: 28, marginBottom: 12,
+        }}>ERAS AI</p>
+
+        <h2 style={{
+          fontSize: "clamp(20px, 4vw, 32px)", fontWeight: 300,
+          color: cfg.qColor, textAlign: "center",
+          lineHeight: 1.3, marginBottom: 12, maxWidth: 480,
+        }}>
+          {total} questions. Your answers shape everything.
+        </h2>
+
+        <p style={{
+          fontSize: 14, color: cfg.agColor, textAlign: "center",
+          marginBottom: 44, maxWidth: 380, lineHeight: 1.65,
+        }}>
+          Speak naturally. Pause when done — ERAS listens and moves on.
+          No mic? You can type instead.
+        </p>
+
+        <button
+          onClick={() => { setStarted(true); setAgentState("speaking"); }}
+          style={{
+            background: cfg.blobHex, color: "#fff",
+            border: "none", borderRadius: 50,
+            padding: "14px 44px", fontSize: 15,
+            fontFamily: "'Inter Tight', sans-serif",
+            fontWeight: 500, cursor: "pointer",
+            letterSpacing: "0.02em",
+            boxShadow: `0 8px 24px ${cfg.blobHex}44`,
+          }}
+        >
+          {cfg.btnText}
+        </button>
+      </div>
+    );
+  }
+
+  // ── Main interview view ────────────────────────────────────────────────────
+  return (
+    <div style={{
+      minHeight: "100dvh", background: cfg.pageBg,
+      display: "flex", flexDirection: "column",
+      alignItems: "center",
+      fontFamily: "'Inter Tight', sans-serif",
+      padding: "0 20px",
+    }}>
+
+      {/* Header */}
+      <div style={{
+        width: "100%", maxWidth: 680,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "28px 0 0",
+      }}>
+        <span style={{
+          fontFamily: "'Montserrat', sans-serif", fontWeight: 700,
+          fontSize: 13, letterSpacing: "0.18em",
+          color: TEAL, textTransform: "uppercase",
+        }}>ERAS AI</span>
+        <span style={{ fontSize: 12, color: cfg.muteColor, letterSpacing: "0.08em" }}>
+          {qIdx + 1} / {total}
+        </span>
+      </div>
+
+      {/* Progress bar */}
+      <div style={{
+        width: "100%", maxWidth: 680,
+        height: 2, background: cfg.progressBg,
+        borderRadius: 2, margin: "10px 0 0", overflow: "hidden",
+      }}>
+        <div style={{
+          width: `${progress}%`, height: "100%",
+          background: cfg.blobHex,
+          transition: "width 0.55s ease",
+        }} />
+      </div>
+
+      {/* Blob */}
+      <div style={{ margin: "28px 0 16px", position: "relative" }}>
+        <Blob
+          state={agentState}
+          cr={cfg.cr} cg={cfg.cg} cb={cfg.cb}
+          amplitude={amplitude}
+        />
+        <div style={{
+          position: "absolute", bottom: 10, left: 0, right: 0,
+          textAlign: "center", fontSize: 11,
+          letterSpacing: "0.14em", textTransform: "uppercase",
+          color: agentState === "listening" ? cfg.blobHex : cfg.muteColor,
+          transition: "color 0.3s", pointerEvents: "none",
+        }}>
+          {STATE_LABEL[agentState]}
+        </div>
+      </div>
+
+      {/* Question text (typewriter) */}
+      <div style={{
+        width: "100%", maxWidth: 600, minHeight: 88,
+        textAlign: "center",
+        fontSize: "clamp(16px, 2.8vw, 21px)",
+        fontWeight: 300, fontStyle: "italic",
+        color: cfg.qColor, lineHeight: 1.55,
+        marginBottom: 24,
+      }}>
+        {displayed}
+        {agentState === "speaking" && (
+          <span style={{
+            display: "inline-block", width: 2, height: "1em",
+            background: cfg.blobHex, marginLeft: 3,
+            verticalAlign: "text-bottom",
+            animation: "aura-blink 0.9s step-end infinite",
+          }} />
+        )}
+      </div>
+
+      {/* Text mode: textarea + submit */}
+      {textMode ? (
+        <div style={{ width: "100%", maxWidth: 560, marginBottom: 20 }}>
+          <textarea
+            value={textInput}
+            onChange={(e) => setTextInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitText();
+            }}
+            disabled={agentState === "thinking" || agentState === "complete"}
+            placeholder="Type your answer here…"
+            rows={4}
+            style={{
+              width: "100%", padding: "14px 16px",
+              fontSize: 15, fontFamily: "'Inter Tight', sans-serif",
+              fontWeight: 300, color: cfg.qColor,
+              background: "rgba(255,255,255,0.72)",
+              border: "1.5px solid rgba(22,20,16,0.11)",
+              borderRadius: 12, resize: "none", outline: "none",
+              boxSizing: "border-box", lineHeight: 1.6,
+            }}
+          />
+          <button
+            onClick={submitText}
+            disabled={!textInput.trim() || agentState === "thinking"}
+            style={{
+              marginTop: 10, width: "100%",
+              background: cfg.blobHex, color: "#fff",
+              border: "none", borderRadius: 50,
+              padding: "12px 0", fontSize: 14,
+              fontFamily: "'Inter Tight', sans-serif",
+              fontWeight: 500, cursor: "pointer",
+              opacity: textInput.trim() ? 1 : 0.4,
+              transition: "opacity 0.2s",
+            }}
+          >
+            Submit  ↵  (⌘ Enter)
+          </button>
+        </div>
+      ) : (
+        /* Voice mode: live transcript preview */
+        transcript && agentState === "listening" && (
+          <p style={{
+            width: "100%", maxWidth: 560,
+            fontSize: 14, color: cfg.agColor,
+            lineHeight: 1.65, textAlign: "center",
+            marginBottom: 18, fontStyle: "italic",
+          }}>
+            "{transcript}"
+          </p>
+        )
+      )}
+
+      {/* Mic button (voice mode) */}
+      {!textMode && (
+        <button
+          onClick={() => { if (agentState === "listening") stopListening(); }}
+          disabled={agentState !== "listening"}
+          aria-label="Stop recording"
+          style={{
+            width: 64, height: 64, borderRadius: "50%",
+            border: `2px solid ${micColor}`,
+            background: agentState === "listening"
+              ? `${cfg.blobHex}18`
+              : "transparent",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: agentState === "listening" ? "pointer" : "default",
+            transition: "border-color 0.3s, background 0.3s",
+            marginBottom: 8, position: "relative",
+          }}
+        >
+          {agentState === "listening" && (
+            <span style={{
+              position: "absolute", inset: -8, borderRadius: "50%",
+              border: `1.5px solid ${cfg.blobHex}55`,
+              animation: "aura-ping 1.4s ease-out infinite",
+            }} />
+          )}
+          {/* Mic SVG */}
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+            stroke={micColor} strokeWidth="1.8"
+            strokeLinecap="round" strokeLinejoin="round">
+            <rect x="9" y="2" width="6" height="12" rx="3"/>
+            <path d="M5 10a7 7 0 0 0 14 0"/>
+            <line x1="12" y1="19" x2="12" y2="22"/>
+            <line x1="9"  y1="22" x2="15" y2="22"/>
+          </svg>
+        </button>
+      )}
+
+      {/* Switch to text mode */}
+      {!textMode && agentState === "listening" && (
+        <button
+          onClick={() => {
+            try { recognitionRef.current?.stop(); } catch {}
+            cleanupAudio();
+            setTextMode(true);
+          }}
+          style={{
+            background: "none", border: "none", cursor: "pointer",
+            fontSize: 12, color: cfg.muteColor,
+            textDecoration: "underline", marginBottom: 4,
+          }}
+        >
+          Switch to text mode
+        </button>
+      )}
+
+      {/* Bottom nav */}
+      <div style={{
+        width: "100%", maxWidth: 560,
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        marginTop: "auto", padding: "20px 0 32px",
+      }}>
+        <button
+          onClick={back}
+          disabled={qIdx === 0}
+          style={{
+            background: "none", border: "none",
+            cursor: qIdx === 0 ? "default" : "pointer",
+            fontSize: 13,
+            color: qIdx === 0 ? "transparent" : cfg.muteColor,
+            display: "flex", alignItems: "center", gap: 6,
+          }}
+        >
+          ← Back
+        </button>
+        <button
+          onClick={skip}
+          style={{
+            background: "none", border: "none", cursor: "pointer",
+            fontSize: 13, color: cfg.muteColor,
+            display: "flex", alignItems: "center", gap: 6,
+          }}
+        >
+          Skip →
+        </button>
+      </div>
+
+      {/* Injected keyframes */}
+      <style>{`
+        @keyframes aura-blink { 0%,100%{opacity:1} 50%{opacity:0} }
+        @keyframes aura-ping  { 0%{transform:scale(1);opacity:.6} 100%{transform:scale(1.55);opacity:0} }
+      `}</style>
+    </div>
+  );
+}
