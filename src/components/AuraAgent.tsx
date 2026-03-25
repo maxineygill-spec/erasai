@@ -364,6 +364,8 @@ function Interview({
   const [textMode,   setTextMode]   = useState(false);
   const [textInput,  setTextInput]  = useState("");
   const [started,    setStarted]    = useState(false);
+  const [recording,  setRecording]  = useState(false);
+  const [micErr,     setMicErr]     = useState<string | null>(null);
 
   const recognitionRef   = useRef<any>(null);
   const audioCtxRef      = useRef<AudioContext | null>(null);
@@ -406,8 +408,29 @@ function Interview({
     setAmplitude(0);
   }, []);
 
+  // ── startAmp / stopAmp helpers ─────────────────────────────────────────────
+  const startAmp = useCallback((stream: MediaStream) => {
+    const ctx = new AudioContext();
+    audioCtxRef.current = ctx;
+    const src = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    src.connect(analyser);
+    analyserRef.current = analyser;
+    drawAmplitude();
+  }, [drawAmplitude]);
+
+  const stopAmp = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    if (audioCtxRef.current?.state !== "closed") audioCtxRef.current?.close();
+    audioCtxRef.current = null;
+    analyserRef.current = null;
+    setAmplitude(0);
+  }, []);
+
   useEffect(() => () => {
-    try { recognitionRef.current?.stop(); } catch {}
+    const r = (window as any)._era_rec;
+    if (r) { try { r.stop(); } catch {} }
     if (silenceRef.current) clearTimeout(silenceRef.current);
     cleanupAudio();
   }, [cleanupAudio]);
@@ -435,79 +458,67 @@ function Interview({
     }, 900);
   }, [total, onComplete]);
 
-  // ── Stop recording (user taps stop) ───────────────────────────────────────
-  const stopListening = useCallback(() => {
-    if (silenceRef.current) clearTimeout(silenceRef.current);
-    // advanceOnEndRef stays true — onend will call advance()
-    try { recognitionRef.current?.stop(); } catch {}
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-  }, []);
+  const handleAnswer = advance;
+
+  // ── Stop recording ─────────────────────────────────────────────────────────
+  const stopRec = useCallback(() => {
+    const r = (window as any)._era_rec;
+    if (r) { try { r.stop(); } catch {} }
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    stopAmp();
+    setRecording(false);
+  }, [stopAmp]);
 
   // ── Start recording ────────────────────────────────────────────────────────
   const startListening = useCallback(async () => {
-    const SR =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-    if (!SR) { setTextMode(true); return; }
-
-    transcriptRef.current = "";
-    setTranscript("");
-    advanceOnEndRef.current = true;
-
-    // 1. getUserMedia → AnalyserNode for amplitude tracking
+    setMicErr(null);
+    const SR = (window as any).SpeechRecognition ||
+               (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      setMicErr("Speech recognition requires Chrome.");
+      setTextMode(true);
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
-      const ctx = new AudioContext();
-      audioCtxRef.current = ctx;
-      const src = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
-      src.connect(analyser);
-      analyserRef.current = analyser;
-      drawAmplitude();
+      startAmp(stream);
     } catch {
-      setTextMode(true);
-      setAgentState("listening");
-      return;
+      // amplitude won't work but speech still can
     }
-
-    // 2. SpeechRecognition — continuous, finals only
+    let accumulated = "";
     const rec = new SR();
-    rec.continuous     = true;
+    rec.continuous = true;
     rec.interimResults = false;
-    rec.lang           = "en-US";
-    recognitionRef.current = rec;
-
-    // 3. Accumulate final transcripts
+    rec.lang = "en-US";
     rec.onresult = (e: any) => {
-      const chunk = e.results[e.resultIndex][0].transcript;
-      transcriptRef.current = (transcriptRef.current + " " + chunk).trim();
-      setTranscript(transcriptRef.current);
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          accumulated = (accumulated + " " + e.results[i][0].transcript).trim();
+        }
+      }
     };
-
     rec.onerror = (e: any) => {
-      if (e.error !== "no-speech") {
-        advanceOnEndRef.current = false;
-        cleanupAudio();
-      }
+      if (e.error === "no-speech") return;
+      setRecording(false);
+      stopAmp();
+      setMicErr("Mic error — please try again or use text mode.");
     };
-
-    // 5. onend → pass accumulated transcript to advance()
     rec.onend = () => {
-      cleanupAudio();
-      if (!advanceOnEndRef.current) return;
-      advanceOnEndRef.current = false;
-      const saved = transcriptRef.current.trim();
-      if (saved) {
-        advance(saved);
+      setRecording(false);
+      stopAmp();
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      if (accumulated.trim().length > 2) {
+        handleAnswer(accumulated.trim());
       } else {
-        setAgentState("listening"); // nothing captured yet
+        setMicErr("Nothing captured — please try again.");
       }
     };
-
+    (window as any)._era_rec = rec;
     rec.start();
-  }, [drawAmplitude, cleanupAudio, advance]);
+    setRecording(true);
+  }, [startAmp, stopAmp, handleAnswer]);
 
   // Once typewriter finishes the question, begin listening
   useEffect(() => {
@@ -526,19 +537,21 @@ function Interview({
 
   // ── Nav helpers ────────────────────────────────────────────────────────────
   const skip = useCallback(() => {
-    advanceOnEndRef.current = false;
+    const r = (window as any)._era_rec;
+    if (r) { try { r.stop(); } catch {} (window as any)._era_rec = null; }
     if (silenceRef.current) clearTimeout(silenceRef.current);
-    try { recognitionRef.current?.stop(); } catch {}
-    cleanupAudio();
+    stopAmp();
+    setRecording(false);
     advance(answersRef.current[qIdxRef.current] ?? "");
-  }, [cleanupAudio, advance]);
+  }, [stopAmp, advance]);
 
   const back = useCallback(() => {
     if (qIdxRef.current === 0) return;
-    advanceOnEndRef.current = false;
+    const r = (window as any)._era_rec;
+    if (r) { try { r.stop(); } catch {} (window as any)._era_rec = null; }
     if (silenceRef.current) clearTimeout(silenceRef.current);
-    try { recognitionRef.current?.stop(); } catch {}
-    cleanupAudio();
+    stopAmp();
+    setRecording(false);
     setTranscript("");
     transcriptRef.current = "";
     setTextInput("");
@@ -745,7 +758,7 @@ function Interview({
       {/* Mic button (voice mode) */}
       {!textMode && (
         <button
-          onClick={() => { if (agentState === "listening") stopListening(); }}
+          onClick={() => { if (agentState === "listening") stopRec(); }}
           disabled={agentState !== "listening"}
           aria-label="Stop recording"
           style={{
