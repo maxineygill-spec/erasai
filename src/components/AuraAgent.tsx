@@ -365,15 +365,16 @@ function Interview({
   const [textInput,  setTextInput]  = useState("");
   const [started,    setStarted]    = useState(false);
 
-  const recognitionRef = useRef<any>(null);
-  const audioCtxRef    = useRef<AudioContext | null>(null);
-  const analyserRef    = useRef<AnalyserNode | null>(null);
-  const streamRef      = useRef<MediaStream | null>(null);
-  const silenceRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const rafRef         = useRef<number>(0);
-  const transcriptRef  = useRef("");
-  const qIdxRef        = useRef(0);
-  const answersRef     = useRef<string[]>(Array(total).fill(""));
+  const recognitionRef   = useRef<any>(null);
+  const audioCtxRef      = useRef<AudioContext | null>(null);
+  const analyserRef      = useRef<AnalyserNode | null>(null);
+  const streamRef        = useRef<MediaStream | null>(null);
+  const silenceRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rafRef           = useRef<number>(0);
+  const transcriptRef    = useRef("");
+  const qIdxRef          = useRef(0);
+  const answersRef       = useRef<string[]>(Array(total).fill(""));
+  const advanceOnEndRef  = useRef(false);
 
   useEffect(() => { qIdxRef.current   = qIdx;    }, [qIdx]);
   useEffect(() => { answersRef.current = answers; }, [answers]);
@@ -434,18 +435,13 @@ function Interview({
     }, 900);
   }, [total, onComplete]);
 
-  // ── Stop recording ─────────────────────────────────────────────────────────
+  // ── Stop recording (user taps stop) ───────────────────────────────────────
   const stopListening = useCallback(() => {
-    try { recognitionRef.current?.stop(); } catch {}
     if (silenceRef.current) clearTimeout(silenceRef.current);
-    cleanupAudio();
-    const saved = transcriptRef.current.trim();
-    if (saved) {
-      advance(saved);
-    } else {
-      setAgentState("listening"); // stay — nothing captured yet
-    }
-  }, [cleanupAudio, advance]);
+    // advanceOnEndRef stays true — onend will call advance()
+    try { recognitionRef.current?.stop(); } catch {}
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+  }, []);
 
   // ── Start recording ────────────────────────────────────────────────────────
   const startListening = useCallback(async () => {
@@ -456,8 +452,9 @@ function Interview({
 
     transcriptRef.current = "";
     setTranscript("");
+    advanceOnEndRef.current = true;
 
-    // MediaStream → analyser for amplitude
+    // 1. getUserMedia → AnalyserNode for amplitude tracking
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -470,36 +467,47 @@ function Interview({
       analyserRef.current = analyser;
       drawAmplitude();
     } catch {
-      // No mic access — fall back to text
       setTextMode(true);
       setAgentState("listening");
       return;
     }
 
+    // 2. SpeechRecognition — continuous, finals only
     const rec = new SR();
-    rec.continuous      = true;
-    rec.interimResults  = true;
-    rec.lang            = "en-US";
+    rec.continuous     = true;
+    rec.interimResults = false;
+    rec.lang           = "en-US";
     recognitionRef.current = rec;
 
-    const resetSilence = () => {
-      if (silenceRef.current) clearTimeout(silenceRef.current);
-      silenceRef.current = setTimeout(stopListening, 2200);
+    // 3. Accumulate final transcripts
+    rec.onresult = (e: any) => {
+      const chunk = e.results[e.resultIndex][0].transcript;
+      transcriptRef.current = (transcriptRef.current + " " + chunk).trim();
+      setTranscript(transcriptRef.current);
     };
 
-    rec.onresult = (e: any) => {
-      let full = "";
-      for (let i = 0; i < e.results.length; i++) full += e.results[i][0].transcript;
-      transcriptRef.current = full;
-      setTranscript(full);
-      resetSilence();
+    rec.onerror = (e: any) => {
+      if (e.error !== "no-speech") {
+        advanceOnEndRef.current = false;
+        cleanupAudio();
+      }
     };
-    rec.onerror = () => stopListening();
-    rec.onend   = () => { cleanupAudio(); };
+
+    // 5. onend → pass accumulated transcript to advance()
+    rec.onend = () => {
+      cleanupAudio();
+      if (!advanceOnEndRef.current) return;
+      advanceOnEndRef.current = false;
+      const saved = transcriptRef.current.trim();
+      if (saved) {
+        advance(saved);
+      } else {
+        setAgentState("listening"); // nothing captured yet
+      }
+    };
 
     rec.start();
-    resetSilence();
-  }, [drawAmplitude, stopListening, cleanupAudio]);
+  }, [drawAmplitude, cleanupAudio, advance]);
 
   // Once typewriter finishes the question, begin listening
   useEffect(() => {
@@ -518,16 +526,18 @@ function Interview({
 
   // ── Nav helpers ────────────────────────────────────────────────────────────
   const skip = useCallback(() => {
-    try { recognitionRef.current?.stop(); } catch {}
+    advanceOnEndRef.current = false;
     if (silenceRef.current) clearTimeout(silenceRef.current);
+    try { recognitionRef.current?.stop(); } catch {}
     cleanupAudio();
     advance(answersRef.current[qIdxRef.current] ?? "");
   }, [cleanupAudio, advance]);
 
   const back = useCallback(() => {
     if (qIdxRef.current === 0) return;
-    try { recognitionRef.current?.stop(); } catch {}
+    advanceOnEndRef.current = false;
     if (silenceRef.current) clearTimeout(silenceRef.current);
+    try { recognitionRef.current?.stop(); } catch {}
     cleanupAudio();
     setTranscript("");
     transcriptRef.current = "";
